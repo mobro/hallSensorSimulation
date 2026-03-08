@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hall Sensor Distance vs Amplitude with Amplification and Temperature</title>
+<style>
+  body { font-family: Arial, sans-serif; }
+  .label { font-size: 14px; }
+  .magnet { fill: #888888; stroke: #000; stroke-width: 1; }
+  .sensor { fill: #000000; stroke: #000; stroke-width: 1; }
+  .signal-original { fill: none; stroke: #cc0000; stroke-width: 2; }
+  .signal-amplified { fill: none; stroke: #ff99cc; stroke-width: 2; }
+  .limit-line { stroke: #800080; stroke-width: 1; stroke-dasharray: 4 2; }
+    .signal-cosine-original { fill: none; stroke: #0066cc; stroke-width: 2; }
+    .signal-cosine-amplified { fill: none; stroke: #99ccff; stroke-width: 2; stroke-dasharray: 6 3; }
+  .distanceLine { stroke: #888; stroke-width: 1; stroke-dasharray: 4 3; }
+  input[type="number"] { width: 60px; }
+  .controls { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin:10px 0 14px 0; }
+  .control { display:flex; flex-direction:column; font-size:13px; }
+  .control label { display:flex; flex-direction:column; }
+  .control .small { font-size:12px; color:#333; margin-top:4px; }
+  #limitOutput { width:140px; background:#fff7f7; }
+</style>
+</head>
+<body>
+
+<h3>Magnet–Hall distance vs Vout, amplification and temperature</h3>
+
+<div class="controls">
+  <div class="control">
+    <label>Distance (arbitrary units):
+      <input id="distanceSlider" type="range" min="20" max="200" value="150">
+    </label>
+    <span id="distanceValue" class="small"></span>
+  </div>
+
+  <div class="control">
+    <label>Amplification factor (1–10):
+      <input id="gainInput" type="number" min="1" max="10" value="1" step="0.1">
+    </label>
+    <span id="gainValue" class="small"></span>
+  </div>
+
+  <div class="control">
+    <label>Temperature (−40 °C to +100 °C):
+      <input id="tempSlider" type="range" min="-40" max="100" value="25" step="1">
+    </label>
+    <span id="tempValue" class="small"></span>
+  </div>
+
+  <div class="control">
+    <label>Vector length limit:
+      <input id="vectorLimit" type="number" min="0" value="6000" step="1">
+    </label>
+  </div>
+
+  <div class="control">
+    <label>Phase (fraction of period 0–1):
+      <input id="phaseSlider" type="range" min="0" max="1" step="0.001" value="0">
+    </label>
+    <span id="phaseValue" class="small">0.000</span>
+  </div>
+
+  <div class="control">
+    <label>Error message:
+      <input id="limitOutput" type="text" readonly value="">
+    </label>
+  </div>
+</div>
+
+<svg id="scene" xmlns="http://www.w3.org/2000/svg"
+  width="900" height="520" viewBox="0 0 900 520">
+
+  <!-- Magnet / Hall area (left, top) -->
+  <rect id="magnet" x="80" y="40" width="60" height="80" class="magnet" />
+  <text x="110" y="35" text-anchor="middle" class="label">Hall</text>
+
+  <rect id="sensor" x="320" y="60" width="30" height="40" class="sensor" />
+  <text id="sensorLabel" x="335" y="55" text-anchor="middle" class="label">Magnet</text>
+
+  <line id="distanceLine" x1="140" y1="100" x2="320" y2="100" class="distanceLine" />
+  <text id="distanceText" x="230" y="120" text-anchor="middle" class="label"></text>
+
+    <!-- ===== Sine / Vout diagram moved down and left (flush aligned) ===== -->
+    <!-- New diagram region: x ≈ 80–420, y ≈ 200–340 (left-aligned under magnet) -->
+
+    <!-- Vertical helper line at left of sine area (optional) -->
+    <line id="yAxisLine" x1="80" y1="180" x2="80" y2="320"
+      stroke="#000" stroke-width="1" />
+
+    <!-- Baseline for sine waves -->
+    <!-- Baseline y = 250 -->
+    <!-- Time axis at bottom (positioned dynamically) -->
+    <line id="timeAxis" x1="80" y1="300" x2="760" y2="300"
+      stroke="#000" stroke-width="1" marker-end="url(#arrowT)" />
+    <text id="timeAxisLabel" x="765" y="304" class="label">t</text>
+
+    <!-- Vout label now BELOW the time axis (left aligned) -->
+    <text id="voutLabel" x="80" y="360" text-anchor="start" class="label">Vout</text>
+
+    <!-- Original sine wave path (blue) -->
+    <path id="signalOriginal" class="signal-original" />
+    <!-- Amplified sine wave path (red) -->
+    <path id="signalAmplified" class="signal-amplified" />
+      <!-- Cosine wave paths (original and amplified) -->
+      <path id="signalCosineOriginal" class="signal-cosine-original" />
+      <path id="signalCosineAmplified" class="signal-cosine-amplified" />
+
+    <!-- Legend (stacked, left-aligned) - moved lower to avoid overlap -->
+    <rect x="90" y="380" width="10" height="2" fill="#cc0000" />
+    <text x="105" y="395" class="label">Vout (temp & dist)</text>
+    <rect x="90" y="410" width="10" height="2" fill="#ff99cc" />
+    <text x="105" y="425" class="label">Amplified Vout</text>
+    <rect x="90" y="440" width="10" height="2" fill="#0066cc" />
+    <text x="105" y="455" class="label">Vout (cosine)</text>
+    <rect x="90" y="470" width="10" height="2" fill="#99ccff" />
+    <text x="105" y="485" class="label">Amplified Vout (cosine)</text>
+      <!-- Amplitude limit lines -->
+      <line id="maxLimitLine" x1="80" y1="0" x2="420" y2="0" class="limit-line" />
+      <text id="maxLimitLabel" x="85" y="0" class="label">Maximum amplitude limit</text>
+      <line id="minLimitLine" x1="80" y1="0" x2="420" y2="0" class="limit-line" />
+      <text id="minLimitLabel" x="85" y="0" class="label">Minimum amplitude limit</text>
+
+  <!-- Arrow marker for time axis -->
+  <defs>
+    <marker id="arrowT" markerWidth="10" markerHeight="10"
+            refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#000" />
+    </marker>
+  </defs>
+</svg>
+
+<!-- Numeric readouts for instantaneous amplitudes and sums -->
+<div style="margin:12px 0 24px 80px; display:flex; gap:18px;">
+  <div class="control">
+    <label>sin amplitude (t=0):
+      <input id="sinAmpField" type="text" readonly value="">
+    </label>
+  </div>
+  <div class="control">
+    <label>cos amplitude (t=0):
+      <input id="cosAmpField" type="text" readonly value="">
+    </label>
+  </div>
+  <div class="control">
+    <label>sin^2 (t=0):
+      <input id="sinSqField" type="text" readonly value="">
+    </label>
+  </div>
+  <div class="control">
+    <label>cos^2 (t=0):
+      <input id="cosSqField" type="text" readonly value="">
+    </label>
+  </div>
+  <div class="control">
+    <label>sum sin^2+cos^2:
+      <input id="sumSqField" type="text" readonly value="">
+    </label>
+  </div>
+</div>
+
+<script>
+const slider = document.getElementById('distanceSlider');
+const distanceValue = document.getElementById('distanceValue');
+const sensor = document.getElementById('sensor');
+const sensorLabel = document.getElementById('sensorLabel');
+const distanceLine = document.getElementById('distanceLine');
+const distanceText = document.getElementById('distanceText');
+const signalOriginal = document.getElementById('signalOriginal');
+const signalAmplified = document.getElementById('signalAmplified');
+const signalCosineOriginal = document.getElementById('signalCosineOriginal');
+const signalCosineAmplified = document.getElementById('signalCosineAmplified');
+const gainInput = document.getElementById('gainInput');
+const gainValue = document.getElementById('gainValue');
+const tempSlider = document.getElementById('tempSlider');
+const tempValue = document.getElementById('tempValue');
+ // amplitude limits (pixels) used for drawing and limit lines
+ const MAX_AMP_LIMIT = 70;
+ const MIN_AMP_LIMIT = 16;
+ const maxLimitLine = document.getElementById('maxLimitLine');
+ const minLimitLine = document.getElementById('minLimitLine');
+const maxLimitLabel = document.getElementById('maxLimitLabel');
+const minLimitLabel = document.getElementById('minLimitLabel');
+const limitOutput = document.getElementById('limitOutput');
+const vectorLimitInput = document.getElementById('vectorLimit');
+const timeAxis = document.getElementById('timeAxis');
+const timeAxisLabel = document.getElementById('timeAxisLabel');
+const voutLabel = document.getElementById('voutLabel');
+const yAxisLine = document.getElementById('yAxisLine');
+const phaseSlider = document.getElementById('phaseSlider');
+const phaseValue = document.getElementById('phaseValue');
+const sinAmpField = document.getElementById('sinAmpField');
+const cosAmpField = document.getElementById('cosAmpField');
+const sinSqField = document.getElementById('sinSqField');
+const cosSqField = document.getElementById('cosSqField');
+const sumSqField = document.getElementById('sumSqField');
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+// Simple linear temperature factor: 1.0 at -40 °C, 0.3 at +100 °C
+function temperatureFactor(tempC) {
+  const tMin = -40;
+  const tMax = 100;
+  const fMax = 1.0;   // at tMin
+  const fMin = 0.3;   // at tMax
+  const tNorm = (tempC - tMin) / (tMax - tMin); // 0..1
+  return fMax - tNorm * (fMax - fMin);
+}
+
+function updateScene() {
+  const dist = Number(slider.value);          // visual distance
+  let gain = Number(gainInput.value);
+  const tempC = Number(tempSlider.value);
+
+  // Clamp gain between 1 and 10
+  gain = clamp(gain || 1, 1, 10);
+  gainInput.value = gain.toFixed(1);
+
+  distanceValue.textContent = ' = ' + dist.toFixed(0);
+  distanceText.textContent = 'distance = ' + dist.toFixed(0);
+  gainValue.textContent = ' (× ' + gain.toFixed(1) + ')';
+  tempValue.textContent = ' = ' + tempC.toFixed(0) + ' °C';
+
+  // Map slider value to sensor x position
+  const sensorX = 140 + dist;                // 140 is magnet right side
+  sensor.setAttribute('x', sensorX);
+  sensorLabel.setAttribute('x', sensorX + 15);
+  distanceLine.setAttribute('x2', sensorX);
+
+  // Amplitude inversely proportional to distance (simple model)
+  const minDist = Number(slider.min);
+  const maxDist = Number(slider.max);
+  const t = (dist - minDist) / (maxDist - minDist); // 0..1
+   const maxAmp = MAX_AMP_LIMIT;  // pixels
+   const minAmp = MIN_AMP_LIMIT;   // pixels
+  let amplitude = maxAmp - t * (maxAmp - minAmp); // larger when close
+
+  // Apply temperature factor: higher temp -> smaller amplitude
+  const tempFactor = temperatureFactor(tempC);
+  amplitude *= tempFactor;
+
+  // Check vector-length condition using amplified sine+cosine amplitudes
+  const vectorLimitVal = vectorLimitInput ? Number(vectorLimitInput.value) || 0 : 0;
+  const ampSin = amplitude * gain; // amplified sine amplitude (px)
+  const ampCos = amplitude * gain; // amplified cosine amplitude (px)
+  const sumSquares = ampSin * ampSin + ampCos * ampCos;
+  const exceedsVector = vectorLimitVal > 0 && sumSquares > (vectorLimitVal * vectorLimitVal);
+
+  // If vector condition exceeded, show 2000; else if amplitudes touch limits show 5050
+  const touching = amplitude >= MAX_AMP_LIMIT || (amplitude * gain) >= MAX_AMP_LIMIT;
+  if (limitOutput) limitOutput.value = exceedsVector ? '2000' : (touching ? '5050' : '');
+
+  // Instantaneous values at selected phase (fraction of period), include gain
+  const phaseFrac = phaseSlider ? Number(phaseSlider.value) : 0;
+  const phase = 2 * Math.PI * phaseFrac;
+  if (phaseValue) phaseValue.textContent = phaseFrac.toFixed(3);
+  const sinVal = Math.sin(phase) * amplitude * gain;
+  const cosVal = Math.cos(phase) * amplitude * gain;
+  const sinSq = sinVal * sinVal;
+  const cosSq = cosVal * cosVal;
+  const sumSq = sinSq + cosSq;
+  if (sinAmpField) sinAmpField.value = sinVal.toFixed(2);
+  if (cosAmpField) cosAmpField.value = cosVal.toFixed(2);
+  if (sinSqField) sinSqField.value = sinSq.toFixed(2);
+  if (cosSqField) cosSqField.value = cosSq.toFixed(2);
+  if (sumSqField) sumSqField.value = sumSq.toFixed(2);
+
+  drawSine(amplitude, gain);
+}
+
+function drawSine(baseAmplitude, gain) {
+  // Adjusted to new sine region (bottom-left, doubled width):
+  const xStart = 80;
+  const xEnd = 760;
+  const baseline = 250;   // center of sine waves
+  const periods = 3;
+  const steps = 80;
+  // global phase offset from slider (fraction of period -> radians)
+  const phaseFrac = phaseSlider ? Number(phaseSlider.value) : 0;
+  const phaseOffset = 2 * Math.PI * phaseFrac;
+
+  let dOriginal = '';
+  let dAmplified = '';
+  let dCosineOriginal = '';
+  let dCosineAmplified = '';
+
+  for (let i = 0; i <= steps; i++) {
+    const x = xStart + (xEnd - xStart) * (i / steps);
+    const phase = 2 * Math.PI * periods * (i / steps) + phaseOffset;
+    const yOrig = baseline - Math.sin(phase) * baseAmplitude;
+    const yAmp = baseline - Math.sin(phase) * baseAmplitude * gain;
+    const yCosOrig = baseline - Math.cos(phase) * baseAmplitude;
+    const yCosAmp = baseline - Math.cos(phase) * baseAmplitude * gain;
+
+    dOriginal += (i === 0 ? 'M ' : ' L ') + x.toFixed(1) + ' ' + yOrig.toFixed(1);
+    dAmplified += (i === 0 ? 'M ' : ' L ') + x.toFixed(1) + ' ' + yAmp.toFixed(1);
+    dCosineOriginal += (i === 0 ? 'M ' : ' L ') + x.toFixed(1) + ' ' + yCosOrig.toFixed(1);
+    dCosineAmplified += (i === 0 ? 'M ' : ' L ') + x.toFixed(1) + ' ' + yCosAmp.toFixed(1);
+  }
+
+  signalOriginal.setAttribute('d', dOriginal);
+  signalAmplified.setAttribute('d', dAmplified);
+  signalCosineOriginal.setAttribute('d', dCosineOriginal);
+  signalCosineAmplified.setAttribute('d', dCosineAmplified);
+
+  // Update amplitude limit lines (use MAX_AMP_LIMIT around baseline)
+  if (maxLimitLine && minLimitLine && maxLimitLabel && minLimitLabel) {
+    const yMax = baseline - MAX_AMP_LIMIT;
+    const yMin = baseline + MAX_AMP_LIMIT;
+    maxLimitLine.setAttribute('y1', yMax);
+    maxLimitLine.setAttribute('y2', yMax);
+    maxLimitLine.setAttribute('x1', xStart);
+    maxLimitLine.setAttribute('x2', xEnd);
+    minLimitLine.setAttribute('y1', yMin);
+    minLimitLine.setAttribute('y2', yMin);
+    minLimitLine.setAttribute('x1', xStart);
+    minLimitLine.setAttribute('x2', xEnd);
+    // labels
+    maxLimitLabel.setAttribute('x', xStart + 5);
+    maxLimitLabel.setAttribute('y', yMax - 6);
+    minLimitLabel.setAttribute('x', xStart + 5);
+    minLimitLabel.setAttribute('y', yMin + 14);
+    // Position the time axis below the minimum-amplitude line
+    const timeAxisY = Math.min(baseline + MAX_AMP_LIMIT + 20, yMin + 20);
+    if (timeAxis) {
+      timeAxis.setAttribute('y1', timeAxisY);
+      timeAxis.setAttribute('y2', timeAxisY);
+      timeAxis.setAttribute('x1', xStart);
+      timeAxis.setAttribute('x2', xEnd);
+    }
+    if (timeAxisLabel) timeAxisLabel.setAttribute('y', timeAxisY + 4);
+    if (voutLabel) voutLabel.setAttribute('y', timeAxisY + 20);
+    // Position y-axis to span from just below the minimum amplitude limit up to just above the maximum amplitude
+    if (yAxisLine) {
+      const yAxisTop = yMax - 10; // slightly above max amplitude (smaller y)
+      const yAxisBottom = yMin + 10; // slightly below min amplitude (larger y)
+      yAxisLine.setAttribute('y1', yAxisTop);
+      yAxisLine.setAttribute('y2', yAxisBottom);
+      yAxisLine.setAttribute('x1', xStart);
+      yAxisLine.setAttribute('x2', xStart);
+    }
+  }
+}
+
+slider.addEventListener('input', updateScene);
+gainInput.addEventListener('input', updateScene);
+tempSlider.addEventListener('input', updateScene);
+phaseSlider.addEventListener('input', updateScene);
+
+updateScene();
+</script>
+
+</body>
+</html>

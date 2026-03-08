@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="800" height="400"
+     viewBox="0 0 800 400">
+
+  <style>
+    .label { font-family: Arial, sans-serif; font-size: 14px; }
+    .axis  { stroke: #000; stroke-width: 1; marker-end: url(#arrow); }
+    .magnet { fill: #d33; stroke: #000; stroke-width: 1; }
+    .sensor { fill: #3a6; stroke: #000; stroke-width: 1; }
+    .signal-small { fill: none; stroke: #0066cc; stroke-width: 2; }
+    .signal-large { fill: none; stroke: #cc6600; stroke-width: 2; }
+    .distance { stroke: #888; stroke-width: 1; stroke-dasharray: 4 3; }
+  </style>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10"
+            refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 z" fill="#000" />
+    </marker>
+  </defs>
+
+  <!-- ===== TOP: LARGE DISTANCE, SMALL AMPLITUDE ===== -->
+  <!-- Magnet -->
+  <rect x="80" y="60" width="60" height="80" class="magnet" />
+  <text x="110" y="55" text-anchor="middle" class="label">Magnet</text>
+
+  <!-- Hall sensor (far away) -->
+  <rect x="320" y="80" width="30" height="40" class="sensor" />
+  <text x="335" y="75" text-anchor="middle" class="label">Hall</text>
+
+  <!-- Distance indication (large) -->
+  <line x1="140" y1="120" x2="320" y2="120" class="distance" />
+  <text x="230" y="140" text-anchor="middle" class="label">large distance</text>
+
+  <!-- Output signal axis (top) -->
+  <line x1="420" y1="60" x2="760" y2="60" class="axis" />
+  <text x="765" y="64" class="label">t</text>
+  <line x1="420" y1="60" x2="420" y2="160" class="axis" />
+  <text x="412" y="50" text-anchor="end" class="label">Vout</text>
+
+  <!-- Small amplitude sine wave -->
+  <path class="signal-small"
+        d="
+          M 430 110
+          C 450 90  470 90  490 110
+          C 510 130 530 130 550 110
+          C 570 90  590 90  610 110
+          C 630 130 650 130 670 110
+          C 690 90  710 90  730 110
+        " />
+  <text x="580" y="180" text-anchor="middle" class="label">
+    small amplitude x
+  </text>
+
+  <!-- ===== BOTTOM: SMALL DISTANCE, LARGE AMPLITUDE ===== -->
+  <!-- Magnet (same) -->
+  <rect x="80" y="240" width="60" height="80" class="magnet" />
+  <text x="110" y="235" text-anchor="middle" class="label">Magnet</text>
+
+  <!-- Hall sensor (closer) -->
+  <rect x="220" y="260" width="30" height="40" class="sensor" />
+  <text x="235" y="255" text-anchor="middle" class="label">Hall</text>
+
+  <!-- Distance indication (small) -->
+  <line x1="140" y1="300" x2="220" y2="300" class="distance" />
+  <text x="180" y="320" text-anchor="middle" class="label">small distance</text>
+
+  <!-- Output signal axis (bottom) -->
+  <line x1="420" y1="240" x2="760" y2="240" class="axis" />
+  <text x="765" y="244" class="label">t</text>
+  <line x1="420" y1="240" x2="420" y2="360" class="axis" />
+  <text x="412" y="230" text-anchor="end" class="label">Vout</text>
+
+  <!-- Large amplitude sine wave -->
+  <path class="signal-large"
+        d="
+          M 430 300
+          C 450 260 470 260 490 300
+          C 510 340 530 340 550 300
+          C 570 260 590 260 610 300
+          C 630 340 650 340 670 300
+          C 690 260 710 260 730 300
+        " />
+  <text x="580" y="380" text-anchor="middle" class="label">
+    larger amplitude &gt; x
+  </text>
+
+</svg>
